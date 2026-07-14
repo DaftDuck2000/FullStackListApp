@@ -41,6 +41,15 @@ if ! check_setup_done; then
     exit 1
   fi
   ok "Setup complete, proceeding to start"
+
+  # Source nvm if available — setup.sh may have installed node via nvm
+  # in a subshell, so the PATH changes are lost.
+  if [ -n "${NVM_DIR-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+  elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+    . "$HOME/.nvm/nvm.sh"
+  fi
+
   echo ""
 fi
 
@@ -101,7 +110,7 @@ start_service "API" "$ROOT_DIR/my-api" \
   "$ROOT_DIR/my-api/.venv/bin/fastapi" dev main.py
 
 start_service "BFF" "$ROOT_DIR/my-bff" \
-  "$LOG_DIR/bff.log" 3001 "http://localhost:3001/api/items" \
+  "$LOG_DIR/bff.log" 3001 "http://localhost:3001/" \
   node index.js
 
 start_service "Frontend" "$ROOT_DIR/my-frontend" \
@@ -109,6 +118,15 @@ start_service "Frontend" "$ROOT_DIR/my-frontend" \
   pnpm dev
 
 echo ""
+
+if [ ${#failed[@]} -eq 3 ]; then
+  err "All services failed to start — check logs in $LOG_DIR"
+  exit 1
+elif [ ${#failed[@]} -gt 0 ]; then
+  warn "Some services failed to start: ${failed[*]}"
+  warn "Check logs in $LOG_DIR"
+fi
+
 ok "All services started"
 echo ""
 

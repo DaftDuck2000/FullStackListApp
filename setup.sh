@@ -8,8 +8,14 @@ info() { printf "\033[36m%s\033[0m\n" "$*"; }
 ok()   { printf "\033[32m✓ %s\033[0m\n" "$*"; }
 err()  { printf "\033[31m%s\033[0m\n" "$*" >&2; }
 
+INSTALL_ALL=${INSTALL_ALL:-0}
+
 prompt_yn() {
   local prompt="$1"
+  if [ "$INSTALL_ALL" -eq 1 ]; then
+    info "→ $prompt Y"
+    return 0
+  fi
   local reply
   read -r -p "$prompt [Y/n] " reply
   case "$reply" in
@@ -54,13 +60,31 @@ check_prereqs() {
   local missing=0
 
   if ! command -v python3 &>/dev/null; then
-    err "python3 not found — install Python >= 3.14 with the venv module"
+    err "python3 not found — install Python >= 3.14"
     missing=1
-  else
-    python3 -c "import venv" 2>/dev/null || {
-      err "python3 venv module not available"
+  fi
+
+  if ! command -v uv &>/dev/null; then
+    warn "uv not found"
+    if command -v curl &>/dev/null; then
+      if prompt_yn "Install uv (Python package manager)?"; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Source uv into PATH for this session
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        if command -v uv &>/dev/null; then
+          ok "uv installed"
+        else
+          err "uv installation may have failed — install manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
+          missing=1
+        fi
+      else
+        err "uv is required — install manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
+        missing=1
+      fi
+    else
+      err "curl not found — install uv manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
       missing=1
-    }
+    fi
   fi
 
   if ! command -v node &>/dev/null; then
@@ -95,6 +119,16 @@ check_prereqs() {
 info "FullStackListApp — Setup"
 echo ""
 
+# ---- Single prompt ------------------------------------------------
+if [ "$INSTALL_ALL" -eq 0 ]; then
+  if prompt_yn "Install all dependencies?"; then
+    INSTALL_ALL=1
+  else
+    warn "Skipping installation. Run setup.sh again or use start.sh."
+    exit 0
+  fi
+fi
+
 # ---- Prerequisites -------------------------------------------------
 info "Checking prerequisites..."
 check_prereqs || {
@@ -110,17 +144,15 @@ info "Step 1/3 — Python API (my-api/)"
 cd "$ROOT_DIR/my-api"
 
 if [ ! -d ".venv" ]; then
-  python3 -m venv .venv
+  uv venv .venv
   ok "Virtual environment created at my-api/.venv"
 else
   ok "Virtual environment already exists"
 fi
 
-source .venv/bin/activate
-
 if [ -f "requirements.txt" ]; then
   if prompt_yn "Install Python packages from requirements.txt?"; then
-    pip install -r requirements.txt
+    uv pip install -r requirements.txt
     ok "Python packages installed"
   else
     warn "Skipping Python package installation"
@@ -129,7 +161,6 @@ else
   warn "No requirements.txt found — skipping"
 fi
 
-deactivate 2>/dev/null || true
 echo ""
 
 # ---- 2. BFF -------------------------------------------------------
@@ -167,7 +198,7 @@ $(ok "Setup complete!")
 Start the services in order:
 
   Terminal 1 — API:
-    cd my-api && source .venv/bin/activate && fastapi dev main.py
+    cd my-api && uv run uvicorn main:app --reload
 
   Terminal 2 — BFF:
     cd my-bff && pnpm start

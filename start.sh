@@ -15,7 +15,6 @@ cleanup() {
   for pid in "${pids[@]}"; do
     kill "$pid" 2>/dev/null || true
   done
-  rm -rf "$LOG_DIR"
 }
 trap cleanup EXIT
 
@@ -25,7 +24,7 @@ echo ""
 
 # ---- Check if setup is complete ----------------------------------
 check_setup_done() {
-  [ -f "$ROOT_DIR/my-api/.venv/bin/fastapi" ]       || return 1
+  [ -d "$ROOT_DIR/my-api/.venv" ]                    || return 1
   [ -d "$ROOT_DIR/my-bff/node_modules/express" ]     || return 1
   [ -d "$ROOT_DIR/my-frontend/node_modules/react" ]  || return 1
   return 0
@@ -34,24 +33,24 @@ check_setup_done() {
 if ! check_setup_done; then
   warn "Dependencies not fully installed — running setup.sh"
   echo ""
-  bash "$ROOT_DIR/setup.sh"
+  INSTALL_ALL=1 bash "$ROOT_DIR/setup.sh"
   echo ""
   if ! check_setup_done; then
     err "Setup incomplete — aborting"
     exit 1
   fi
   ok "Setup complete, proceeding to start"
-
-  # Source nvm if available — setup.sh may have installed node via nvm
-  # in a subshell, so the PATH changes are lost.
-  if [ -n "${NVM_DIR-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
-    . "$NVM_DIR/nvm.sh"
-  elif [ -s "$HOME/.nvm/nvm.sh" ]; then
-    . "$HOME/.nvm/nvm.sh"
-  fi
-
   echo ""
 fi
+
+# Source nvm and add uv to PATH after setup, so freshly installed
+# tools are available in this session (no terminal restart needed).
+if [ -n "${NVM_DIR-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+  . "$HOME/.nvm/nvm.sh"
+fi
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # ---- Pre-flight port check ---------------------------------------
 PORTS=(8000 3001 5173)
@@ -72,6 +71,25 @@ if [ ${#taken[@]} -gt 0 ]; then
 fi
 ok "All ports are free"
 echo ""
+
+# ---- Prerequisites check -----------------------------------------
+missing_tools=0
+if ! command -v node &>/dev/null; then
+  err "node not found — run setup.sh first or install Node.js >= 22"
+  missing_tools=1
+fi
+if ! command -v pnpm &>/dev/null; then
+  err "pnpm not found — run setup.sh first or install pnpm"
+  missing_tools=1
+fi
+if ! command -v uv &>/dev/null; then
+  err "uv not found — run setup.sh first or install uv"
+  missing_tools=1
+fi
+if [ "$missing_tools" -ne 0 ]; then
+  err "Prerequisites not satisfied. Aborting."
+  exit 1
+fi
 
 # ---- Start services ----------------------------------------------
 rm -rf "$LOG_DIR"
@@ -107,7 +125,7 @@ start_service() {
 
 start_service "API" "$ROOT_DIR/my-api" \
   "$LOG_DIR/api.log" 8000 "http://localhost:8000/items" \
-  "$ROOT_DIR/my-api/.venv/bin/fastapi" dev main.py
+  uv run uvicorn main:app --reload
 
 start_service "BFF" "$ROOT_DIR/my-bff" \
   "$LOG_DIR/bff.log" 3001 "http://localhost:3001/" \

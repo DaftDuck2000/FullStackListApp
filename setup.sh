@@ -18,6 +18,38 @@ prompt_yn() {
   esac
 }
 
+install_node() {
+  info "Installing Node.js via nvm..."
+
+  if [ -n "${NVM_DIR-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+  fi
+
+  if ! command -v nvm &>/dev/null; then
+    local nvm_install_url="https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh"
+    if command -v curl &>/dev/null; then
+      curl -fsSL "$nvm_install_url" | bash || { err "nvm installation failed"; return 1; }
+    elif command -v wget &>/dev/null; then
+      wget -qO- "$nvm_install_url" | bash || { err "nvm installation failed"; return 1; }
+    else
+      err "Neither curl nor wget available — can't install nvm."
+      err "Install Node.js >= 22 manually, then re-run this script."
+      return 1
+    fi
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+  fi
+
+  if ! command -v nvm &>/dev/null; then
+    err "nvm not available after install — install Node.js >= 22 manually"
+    return 1
+  fi
+
+  nvm install 22 || { err "Node.js installation via nvm failed"; return 1; }
+  nvm alias default 22
+  ok "Node.js $(node --version) installed via nvm"
+}
+
 check_prereqs() {
   local missing=0
 
@@ -32,8 +64,12 @@ check_prereqs() {
   fi
 
   if ! command -v node &>/dev/null; then
-    err "node not found — install Node.js >= 22"
-    missing=1
+    warn "node not found — Node.js >= 22 required"
+    if prompt_yn "Install Node.js >= 22 via nvm?"; then
+      install_node || missing=1
+    else
+      missing=1
+    fi
   fi
 
   if ! command -v pnpm &>/dev/null; then

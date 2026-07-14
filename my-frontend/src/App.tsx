@@ -70,7 +70,7 @@ function App() {
          <input id="PriorityInput" value={priority} onChange={(e) => setPriority(e.target.value)} placeholder="Priority" />
          <input id="MethodInput" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Method" />
          <button type="submit">Add</button>
-         <button type='button' onClick={() => resetList()} >Reset</button>
+         <button type='button' onClick={() => resetList()}>Populate</button>
        </form>
        <div className="filter-bar">
          <input placeholder="Search name" value={filterName} onChange={e => { setFilterName(e.target.value); loadItems(e.target.value, filterPriority, filterMethod); }} />

@@ -150,14 +150,14 @@ echo ""
 
 # ---- TUI menu ----------------------------------------------------
 while true; do
-  echo "====================================="
-  echo "  FullStackListApp — Running"
-  echo "====================================="
-  echo "  1) View API logs       :8000"
-  echo "  2) View BFF logs       :3001"
-  echo "  3) View Frontend logs  :5173"
-  echo "  q) Quit all services"
-  echo "====================================="
+  echo "========================================================"
+  echo "  FullStackListApp — Running at http://localhost:5173/  "
+  echo "========================================================"
+  echo "            1) View API logs       :8000"
+  echo "            2) View BFF logs       :3001"
+  echo "            3) View Frontend logs  :5173"
+  echo "            q) Quit all services"
+  echo "========================================================"
   echo ""
 
   read -r -n 1 key </dev/tty 2>/dev/null || read -r -n 1 key

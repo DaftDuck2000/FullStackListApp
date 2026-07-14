@@ -11,7 +11,7 @@ err()  { printf "\033[31m%s\033[0m\n" "$*" >&2; }
 prompt_yn() {
   local prompt="$1"
   local reply
-  read -r -p "$prompt [y/N] " reply
+  read -r -p "$prompt [Y/n] " reply
   case "$reply" in
     [yY]|[yY][eE][sS]) return 0 ;;
     *) return 1 ;;
@@ -102,6 +102,7 @@ info "Step 2/3 — BFF Proxy (my-bff/)"
 cd "$ROOT_DIR/my-bff"
 
 if prompt_yn "Install Node.js dependencies for the BFF (my-bff/)?"; then
+  rm -f pnpm-lock.yaml
   pnpm install
   ok "BFF dependencies installed"
 else
@@ -115,6 +116,7 @@ info "Step 3/3 — Frontend (my-frontend/)"
 cd "$ROOT_DIR/my-frontend"
 
 if prompt_yn "Install Node.js dependencies for the Frontend (my-frontend/)?"; then
+  rm -f pnpm-lock.yaml
   pnpm install
   ok "Frontend dependencies installed"
 else
